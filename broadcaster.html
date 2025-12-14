@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>FieldLive - Broadcaster</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a3a2e 0%, #0f2419 100%);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: -0.5px;
+        }
+
+        .status-badge {
+            background: rgba(76, 217, 100, 0.2);
+            color: #4CD964;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4CD964;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .go-live-section {
+            text-align: center;
+            margin: 60px 0;
+        }
+
+        .go-live-button {
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4CD964 0%, #34C759 100%);
+            border: none;
+            box-shadow: 0 20px 60px rgba(76, 217, 100, 0.4),
+                        inset 0 -8px 20px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 0 auto;
+        }
+
+        .go-live-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 25px 70px rgba(76, 217, 100, 0.5);
+        }
+
+        .go-live-button:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .go-live-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .camera-icon {
+            width: 60px;
+            height: 60px;
+            fill: #1a3a2e;
+        }
+
+        .go-live-text {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1a3a2e;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 60px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+        }
+
+        /* Stream Setup Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a3a2e;
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #4CD964;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .start-streaming-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #4CD964 0%, #34C759 100%);
+            border: none;
+            border-radius: 12px;
+            color: #1a3a2e;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .start-streaming-btn:hover {
+            opacity: 0.9;
+        }
+
+        .start-streaming-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Live Streaming View */
+        #liveView {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #000;
+            z-index: 2000;
+        }
+
+        #liveView.active {
+            display: block;
+        }
+
+        #localVideoContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        #localVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .live-controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+            z-index: 2001;
+        }
+
+        .live-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .live-badge {
+            background: #FF3B30;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-viewers {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .close-stream-btn {
+            background: rgba(0, 0, 0, 0.6);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .live-timer {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            z-index: 2001;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 12px 24px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 2001;
+        }
+
+        .connection-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .viewer-link-section {
+            position: fixed;
+            bottom: 100px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 16px;
+            border-radius: 12px;
+            z-index: 2001;
+            text-align: center;
+        }
+
+        .viewer-link-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 8px;
+        }
+
+        .viewer-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .viewer-link-text {
+            flex: 1;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .copy-link-btn {
+            background: #4CD964;
+            border: none;
+            color: #1a3a2e;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .live-bottom-controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 30px 20px;
+            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+            z-index: 2001;
+        }
+
+        .end-stream-btn {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 18px;
+            background: #FF3B30;
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="homeView">
+        <header>
+            <div class="logo">FieldLive</div>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                READY TO STREAM
+            </div>
+        </header>
+
+        <div class="go-live-section">
+            <button class="go-live-button" id="goLiveBtn">
+                <svg class="camera-icon" viewBox="0 0 24 24">
+                    <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                </svg>
+                <div class="go-live-text">GO LIVE</div>
+            </button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Last Stream</div>
+                <div class="stat-value" id="lastStreamDuration">--</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Views</div>
+                <div class="stat-value" id="totalViews">--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stream Setup Modal -->
+    <div class="modal" id="setupModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Stream Setup</h2>
+                <button class="close-btn" id="closeSetupBtn">&times;</button>
+            </div>
+            
+            <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 24px;">
+                Configure your stream details before broadcasting.
+            </p>
+
+            <div class="form-group">
+                <label class="form-label">Event Title (Optional)</label>
+                <input type="text" class="form-input" id="streamTitle" placeholder="e.g. Championship Finals">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Select Sport</label>
+                <select class="form-select" id="sportSelect">
+                    <option value="">Choose a sport...</option>
+                    <option value="Soccer">Soccer</option>
+                    <option value="Basketball">Basketball</option>
+                    <option value="Football">Football</option>
+                    <option value="Baseball">Baseball</option>
+                    <option value="Volleyball">Volleyball</option>
+                    <option value="Hockey">Hockey</option>
+                    <option value="Tennis">Tennis</option>
+                    <option value="Track">Track & Field</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <button class="start-streaming-btn" id="startStreamingBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                </svg>
+                START STREAMING
+            </button>
+
+            <p style="color: rgba(255, 255, 255, 0.5); font-size: 12px; margin-top: 16px; text-align: center;">
+                Ensure you have a stable internet connection.
+            </p>
+        </div>
+    </div>
+
+    <!-- Live Streaming View -->
+    <div id="liveView">
+        <div id="localVideoContainer">
+            <div id="localVideo"></div>
+        </div>
+        
+        <div class="live-controls">
+            <div class="live-header">
+                <div>
+                    <div class="live-badge">
+                        <div class="status-dot"></div>
+                        LIVE
+                    </div>
+                </div>
+                <div class="live-viewers">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                    <span id="liveViewerCount">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="live-timer" id="liveTimer">00:00:00</div>
+
+        <div class="connection-status">
+            <svg class="connection-icon" viewBox="0 0 24 24" fill="#4CD964">
+                <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+            </svg>
+            <span id="connectionStatusText">Connecting...</span>
+        </div>
+
+        <div class="viewer-link-section" id="viewerLinkSection">
+            <div class="viewer-link-label">Share this link with viewers:</div>
+            <div class="viewer-link">
+                <span class="viewer-link-text" id="viewerLinkText">Loading...</span>
+                <button class="copy-link-btn" onclick="copyViewerLink()">Copy</button>
+            </div>
+        </div>
+
+        <div class="live-bottom-controls">
+            <button class="end-stream-btn" onclick="endStream()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 6h12v12H6z"/>
+                </svg>
+                End Stream
+            </button>
+        </div>
+    </div>
+
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+    <script>
+        const API_URL = 'https://fieldlive-production.up.railway.app/api';
+        let currentStream = null;
+        let streamStartTime = null;
+        let timerInterval = null;
+        let viewerCountWS = null;
+        let agoraClient = null;
+        let localAudioTrack = null;
+        let localVideoTrack = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupEventListeners();
+            loadStats();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('goLiveBtn').addEventListener('click', showSetupModal);
+            document.getElementById('closeSetupBtn').addEventListener('click', hideSetupModal);
+            document.getElementById('startStreamingBtn').addEventListener('click', initializeStream);
+        }
+
+        function showSetupModal() {
+            document.getElementById('setupModal').classList.add('active');
+        }
+
+        function hideSetupModal() {
+            document.getElementById('setupModal').classList.remove('active');
+        }
+
+        async function initializeStream() {
+            const title = document.getElementById('streamTitle').value || 'Untitled Stream';
+            const sport = document.getElementById('sportSelect').value || 'General';
+            const btn = document.getElementById('startStreamingBtn');
+
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Initializing...';
+
+                // Create stream on backend
+                const response = await fetch(`${API_URL}/streams/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, sport })
+                });
+
+                const data = await response.json();
+                if (!data.success) throw new Error('Failed to create stream');
+
+                currentStream = data.stream;
+
+                // Initialize Agora
+                await initializeAgora();
+
+                // Update viewer link
+                document.getElementById('viewerLinkText').textContent = currentStream.viewerUrl;
+
+                // Start the stream
+                await startStream();
+
+                hideSetupModal();
+                document.getElementById('homeView').classList.add('hidden');
+                document.getElementById('liveView').classList.add('active');
+
+                // Start timer
+                streamStartTime = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
+
+                // Connect to viewer count WebSocket
+                connectViewerCountWS();
+
+                // Keep screen awake
+                if ('wakeLock' in navigator) {
+                    try {
+                        await navigator.wakeLock.request('screen');
+                    } catch (err) {
+                        console.log('Wake lock failed:', err);
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error initializing stream:', error);
+                alert('Failed to start stream: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg> START STREAMING';
+            }
+        }
+
+        async function initializeAgora() {
+            try {
+                // Create Agora client
+                agoraClient = AgoraRTC.createClient({ 
+                    mode: "live", 
+                    codec: "vp8",
+                    role: "host"
+                });
+
+                // Set up event listeners
+                agoraClient.on("connection-state-change", (curState, prevState) => {
+                    console.log(`Connection state: ${prevState} -> ${curState}`);
+                    updateConnectionStatus(curState);
+                });
+
+                agoraClient.on("user-published", async (user, mediaType) => {
+                    console.log("User published:", user.uid, mediaType);
+                });
+
+                // Create local tracks
+                [localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+                    {}, 
+                    { 
+                        encoderConfig: {
+                            width: 1280,
+                            height: 720,
+                            frameRate: 30,
+                            bitrateMin: 600,
+                            bitrateMax: 1000,
+                        },
+                        facingMode: "environment"
+                    }
+                );
+
+                // Play local video
+                localVideoTrack.play("localVideo");
+
+                // Join channel
+                await agoraClient.join(
+                    currentStream.appId,
+                    currentStream.channelName,
+                    currentStream.broadcasterToken,
+                    currentStream.broadcasterUid
+                );
+
+                // Publish tracks
+                await agoraClient.publish([localAudioTrack, localVideoTrack]);
+
+                console.log("Successfully joined and published");
+                updateConnectionStatus("CONNECTED");
+
+            } catch (error) {
+                console.error("Agora initialization error:", error);
+                throw new Error("Failed to initialize camera and microphone. Please grant permissions.");
+            }
+        }
+
+        function updateConnectionStatus(status) {
+            const statusText = document.getElementById('connectionStatusText');
+            if (status === "CONNECTED" || status === "connected") {
+                statusText.textContent = "Connection: Excellent";
+            } else if (status === "CONNECTING" || status === "connecting") {
+                statusText.textContent = "Connecting...";
+            } else if (status === "RECONNECTING" || status === "reconnecting") {
+                statusText.textContent = "Reconnecting...";
+            } else {
+                statusText.textContent = "Connection: " + status;
+            }
+        }
+
+        async function startStream() {
+            try {
+                const response = await fetch(`${API_URL}/streams/${currentStream.id}/start`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+                if (!data.success) throw new Error('Failed to start stream');
+
+                console.log('Stream started successfully');
+            } catch (error) {
+                console.error('Error starting stream:', error);
+            }
+        }
+
+        async function endStream() {
+            if (!confirm('Are you sure you want to end this stream?')) return;
+
+            try {
+                // Leave Agora channel
+                if (localAudioTrack) {
+                    localAudioTrack.stop();
+                    localAudioTrack.close();
+                }
+                if (localVideoTrack) {
+                    localVideoTrack.stop();
+                    localVideoTrack.close();
+                }
+                if (agoraClient) {
+                    await agoraClient.leave();
+                }
+
+                // End stream on backend
+                if (currentStream) {
+                    await fetch(`${API_URL}/streams/${currentStream.id}/end`, {
+                        method: 'POST'
+                    });
+                }
+
+                // Clean up
+                clearInterval(timerInterval);
+                if (viewerCountWS) {
+                    viewerCountWS.close();
+                }
+
+                // Return to home
+                document.getElementById('liveView').classList.remove('active');
+                document.getElementById('homeView').classList.remove('hidden');
+
+                currentStream = null;
+                agoraClient = null;
+                localAudioTrack = null;
+                localVideoTrack = null;
+                
+                loadStats();
+
+            } catch (error) {
+                console.error('Error ending stream:', error);
+                alert('Error ending stream. Please refresh the page.');
+            }
+        }
+
+        function updateTimer() {
+            if (!streamStartTime) return;
+
+            const elapsed = Date.now() - streamStartTime;
+            const hours = Math.floor(elapsed / 3600000);
+            const minutes = Math.floor((elapsed % 3600000) / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+
+            document.getElementById('liveTimer').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function connectViewerCountWS() {
+            if (!currentStream) return;
+
+            viewerCountWS = new WebSocket(`wss://fieldlive-production.up.railway.app/ws/${currentStream.id}`);
+
+            viewerCountWS.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'viewerCount') {
+                    document.getElementById('liveViewerCount').textContent = data.count;
+                }
+            };
+
+            viewerCountWS.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function copyViewerLink() {
+            const linkText = document.getElementById('viewerLinkText').textContent;
+            navigator.clipboard.writeText(linkText).then(() => {
+                const btn = event.target;
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                }, 2000);
+            });
+        }
+
+        function loadStats() {
+            // Placeholder - in production, fetch real stats from backend
+            document.getElementById('lastStreamDuration').textContent = '--';
+            document.getElementById('totalViews').textContent = '--';
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', (e) => {
+            if (currentStream) {
+                e.preventDefault();
+                e.returnValue = '';
+                return 'Stream is still live. Are you sure you want to leave?';
+            }
+        });
+    </script>
+</body>
+</html>
