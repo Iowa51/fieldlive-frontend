@@ -292,9 +292,9 @@
 
         // Get stream ID from URL
         function getStreamIdFromUrl() {
-            const path = window.location.pathname;
-            const match = path.match(/\/watch\/([a-zA-Z0-9-]+)/);
-            return match ? match[1] : null;
+            // Get stream ID from URL query parameter: ?stream=STREAM-ID
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('stream');
         }
 
         // Initialize
@@ -541,4 +541,3 @@
     </script>
 </body>
 </html>
-
