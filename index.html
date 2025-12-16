@@ -441,7 +441,18 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+            background: transparent;
+    border: none;
+    color: white;
+    outline: none;
+    padding: 0;
+    cursor: text;
         }
+        }
+
+.viewer-link-text:focus {
+    background: rgba(255, 255, 255, 0.1);
+}
 
         .copy-link-btn {
             background: #4CD964;
@@ -604,7 +615,7 @@
         <div class="viewer-link-section" id="viewerLinkSection">
             <div class="viewer-link-label">Share this link with viewers:</div>
             <div class="viewer-link">
-                <span class="viewer-link-text" id="viewerLinkText">Loading...</span>
+                <input type="text" class="viewer-link-text" id="viewerLinkText" value="Loading..." readonly onclick="this.select()">
                 <button class="copy-link-btn" onclick="copyViewerLink()">Copy</button>
             </div>
         </div>
@@ -675,7 +686,7 @@
                 await initializeAgora();
 
                 // Update viewer link
-                document.getElementById('viewerLinkText').textContent = currentStream.viewerUrl;
+                document.getElementById('viewerLinkText').value = currentStream.viewerUrl;
 
                 // Start the stream
                 await startStream();
