@@ -418,6 +418,17 @@
             z-index: 2001;
             text-align: center;
         }
+        .viewer-link-section {
+    position: fixed;
+    bottom: 30px;
+    left: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 16px;
+    border-radius: 12px;
+    z-index: 2002;    /* Changed from 2001 to 2002 - higher than End Stream */
+    text-align: center;
+        }
 
         .viewer-link-label {
             font-size: 12px;
@@ -467,7 +478,7 @@
 
         .live-bottom-controls {
             position: fixed;
-            bottom: 0;
+            bottom: 120;
             left: 0;
             right: 0;
             padding: 30px 20px;
@@ -615,7 +626,14 @@
         <div class="viewer-link-section" id="viewerLinkSection">
             <div class="viewer-link-label">Share this link with viewers:</div>
             <div class="viewer-link">
-                <input type="text" class="viewer-link-text" id="viewerLinkText" value="Loading..." readonly onclick="this.select()">
+               <input 
+    type="text" 
+    class="viewer-link-text" 
+    id="viewerLinkText" 
+    value="Loading..." 
+    readonly 
+    onclick="this.select()" 
+    style="user-select: all; -webkit-user-select: all; -moz-user-select: all;"> 
                 <button class="copy-link-btn" onclick="copyViewerLink()">Copy</button>
             </div>
         </div>
