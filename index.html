@@ -279,11 +279,44 @@
             display: block;
         }
 
-        #localVideoContainer {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
+        #localVideo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform-origin: center center;
+}
+
+/* Handle orientation changes */
+@media (orientation: portrait) {
+    #localVideoContainer {
+        width: 100vw;
+        height: 100vh;
+    }
+}
+
+@media (orientation: landscape) {
+    #localVideoContainer {
+        width: 100vw;
+        height: 100vh;
+    }
+}
+
+
+/* Handle orientation changes */
+@media (orientation: portrait) {
+    #localVideoContainer {
+        width: 100vw;
+        height: 100vh;
+    }
+}
+
+@media (orientation: landscape) {
+    #localVideoContainer {
+        width: 100vw;
+        height: 100vh;
+    }
+}
+        
 
         #localVideo {
             width: 100%;
@@ -376,7 +409,7 @@
 
         .viewer-link-section {
             position: fixed;
-            bottom: 100px;
+            bottom: 30px;
             left: 20px;
             right: 20px;
             background: rgba(0, 0, 0, 0.8);
@@ -695,19 +728,26 @@
                 });
 
                 // Create local tracks
-                [localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
-                    {}, 
-                    { 
-                        encoderConfig: {
-                            width: 1280,
-                            height: 720,
-                            frameRate: 30,
-                            bitrateMin: 600,
-                            bitrateMax: 1000,
-                        },
-                        facingMode: "environment"
-                    }
-                );
+               // Determine orientation
+const isLandscape = window.innerWidth > window.innerHeight;
+
+[localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+    {
+        AEC: true, // Acoustic Echo Cancellation
+        ANS: true  // Automatic Noise Suppression
+    }, 
+    { 
+        encoderConfig: {
+            width: isLandscape ? 1280 : 720,
+            height: isLandscape ? 720 : 1280,
+            frameRate: 30,
+            bitrateMin: 600,
+            bitrateMax: 1000,
+        },
+        facingMode: "environment",
+        optimizationMode: "motion" // Better for sports
+    }
+);
 
                 // Play local video
                 localVideoTrack.play("localVideo");
@@ -861,6 +901,41 @@
                 return 'Stream is still live. Are you sure you want to leave?';
             }
         });
+        // Handle orientation changes
+window.addEventListener('orientationchange', async () => {
+    if (localVideoTrack && agoraClient) {
+        // Wait for orientation animation to complete
+        setTimeout(async () => {
+            const isLandscape = window.innerWidth > window.innerHeight;
+            
+            // Recreate video track with new dimensions
+            localVideoTrack.stop();
+            localVideoTrack.close();
+            
+            localVideoTrack = await AgoraRTC.createCameraVideoTrack({
+                encoderConfig: {
+                    width: isLandscape ? 1280 : 720,
+                    height: isLandscape ? 720 : 1280,
+                    frameRate: 30,
+                    bitrateMin: 600,
+                    bitrateMax: 1000,
+                },
+                facingMode: "environment",
+                optimizationMode: "motion"
+            });
+            
+            // Replay video locally
+            localVideoTrack.play("localVideo");
+            
+            // Republish to channel
+            await agoraClient.unpublish([localVideoTrack]);
+            await agoraClient.publish([localVideoTrack]);
+            
+            console.log('Video track updated for new orientation');
+        }, 500);
+    }
+});
     </script>
 </body>
 </html>
+
