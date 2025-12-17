@@ -290,28 +290,32 @@
         }
 
         #localVideo {
-            /* FIXED: Proper sizing that adapts to orientation */
-            width: 100vw;
-            height: 100vh;
-            object-fit: cover; /* Always fill the screen */
-            transform: scaleX(-1); /* Mirror for preview */
+            /* Base video styling */
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%) scaleX(-1);
+            transform-origin: center center;
         }
 
-        /* Force proper video display in both orientations */
+        /* Portrait orientation - video is naturally portrait */
         @media (orientation: portrait) {
-            #localVideoContainer {
+            #localVideo {
                 width: 100vw;
-                height: 100vh;
+                height: auto;
             }
         }
 
+        /* Landscape orientation - rotate the portrait video 90 degrees */
         @media (orientation: landscape) {
-            #localVideoContainer {
-                width: 100vw;
-                height: 100vh;
+            #localVideo {
+                transform: translate(-50%, -50%) scaleX(-1) rotate(90deg);
+                width: 100vh; /* Swap dimensions */
+                height: 100vw;
             }
         }
 
@@ -744,7 +748,8 @@
                     console.log("User published:", user.uid, mediaType);
                 });
 
-                // FIXED: Use back camera with flexible resolution for orientation changes
+                // FIXED: Always capture in portrait, rotate with CSS for landscape
+                // This is more reliable than trying to change camera orientation
                 [localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
                     {
                         AEC: true, // Acoustic Echo Cancellation
@@ -752,9 +757,9 @@
                     }, 
                     { 
                         encoderConfig: {
-                            // Use flexible resolution that adapts to orientation
-                            width: { ideal: 1280, max: 1920 },
-                            height: { ideal: 720, max: 1080 },
+                            // Portrait dimensions - we'll rotate for landscape
+                            width: 720,
+                            height: 1280,
                             frameRate: 30,
                             bitrateMin: 600,
                             bitrateMax: 1000,
@@ -764,11 +769,13 @@
                     }
                 );
 
+                console.log('Video track settings:', localVideoTrack.getSettings());
+
                 // Play local video (mirrored preview for you, but viewers see it correctly)
                 localVideoTrack.play("localVideo");
 
                 // FIXED: Ensure proper initial display
-                handleOrientationChange();
+                setTimeout(() => handleOrientationChange(), 200);
 
                 // Join channel
                 await agoraClient.join(
@@ -922,19 +929,21 @@
         function handleOrientationChange() {
             if (!localVideoTrack) return;
             
-            const container = document.getElementById('localVideoContainer');
             const videoElement = document.getElementById('localVideo');
+            const isLandscape = window.innerWidth > window.innerHeight;
             
-            // Force layout recalculation
+            console.log('Orientation changed:', isLandscape ? 'landscape' : 'portrait');
+            console.log('Window dimensions:', window.innerWidth, 'x', window.innerHeight);
+            
+            // Force browser to recalculate styles
             setTimeout(() => {
-                const isLandscape = window.innerWidth > window.innerHeight;
-                console.log('Orientation changed:', isLandscape ? 'landscape' : 'portrait');
-                
-                // Force video to fill the screen properly
                 if (videoElement) {
-                    videoElement.style.width = '100vw';
-                    videoElement.style.height = '100vh';
-                    videoElement.style.objectFit = 'cover';
+                    // Trigger reflow
+                    videoElement.style.display = 'none';
+                    videoElement.offsetHeight; // Force reflow
+                    videoElement.style.display = 'block';
+                    
+                    console.log('Video element updated for', isLandscape ? 'landscape' : 'portrait');
                 }
             }, 100);
         }
@@ -942,6 +951,14 @@
         // Listen for orientation changes
         window.addEventListener('orientationchange', handleOrientationChange);
         window.addEventListener('resize', handleOrientationChange);
+        
+        // Also listen for screen orientation API if available
+        if (screen.orientation) {
+            screen.orientation.addEventListener('change', () => {
+                console.log('Screen orientation:', screen.orientation.type);
+                handleOrientationChange();
+            });
+        }
 
         // Fallback copy method for mobile browsers
         function fallbackCopyLink(text, btn) {
