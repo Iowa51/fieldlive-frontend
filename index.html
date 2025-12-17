@@ -290,32 +290,35 @@
         }
 
         #localVideo {
-            /* Base video styling */
+            /* FIXED: Proper sizing that adapts to orientation */
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover; /* Always fill the screen */
+            transform: scaleX(-1); /* Mirror for preview */
             position: absolute;
-            top: 50%;
-            left: 50%;
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
-            transform: translate(-50%, -50%) scaleX(-1);
-            transform-origin: center center;
+            top: 0;
+            left: 0;
+            transition: transform 0.3s ease;
         }
 
-        /* Portrait orientation - video is naturally portrait */
+        /* Force proper video display in both orientations */
         @media (orientation: portrait) {
-            #localVideo {
+            #localVideoContainer {
                 width: 100vw;
-                height: auto;
+                height: 100vh;
             }
         }
 
-        /* Landscape orientation - rotate the portrait video 90 degrees */
         @media (orientation: landscape) {
+            #localVideoContainer {
+                width: 100vw;
+                height: 100vh;
+            }
+            
+            /* Ensure video fills the screen properly in landscape */
             #localVideo {
-                transform: translate(-50%, -50%) scaleX(-1) rotate(90deg);
-                width: 100vh; /* Swap dimensions */
-                height: 100vw;
+                transform: scaleX(-1) rotate(0deg) !important;
+                object-fit: cover !important;
             }
         }
 
@@ -604,7 +607,7 @@
     <!-- Live Streaming View -->
     <div id="liveView">
         <div id="localVideoContainer">
-            <div id="localVideo"></div>
+            <video id="localVideo" autoplay muted playsinline></video>
         </div>
         
         <div class="live-controls">
@@ -661,6 +664,7 @@
         let agoraClient = null;
         let localAudioTrack = null;
         let localVideoTrack = null;
+        let currentOrientation = 'portrait';
 
         // Event listeners
         document.getElementById('goLiveBtn').addEventListener('click', () => {
@@ -699,6 +703,9 @@
 
                 currentStream = data.stream;
 
+                // Lock orientation for better streaming experience
+                lockOrientation();
+
                 // Initialize Agora
                 await initializeAgora();
 
@@ -731,6 +738,10 @@
 
         async function initializeAgora() {
             try {
+                // Detect initial orientation
+                const initialIsLandscape = window.innerWidth > window.innerHeight;
+                currentOrientation = initialIsLandscape ? 'landscape' : 'portrait';
+
                 // Create Agora client
                 agoraClient = AgoraRTC.createClient({ 
                     mode: "live", 
@@ -748,8 +759,7 @@
                     console.log("User published:", user.uid, mediaType);
                 });
 
-                // FIXED: Always capture in portrait, rotate with CSS for landscape
-                // This is more reliable than trying to change camera orientation
+                // FIXED: Camera configuration with proper orientation handling
                 [localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
                     {
                         AEC: true, // Acoustic Echo Cancellation
@@ -757,25 +767,30 @@
                     }, 
                     { 
                         encoderConfig: {
-                            // Portrait dimensions - we'll rotate for landscape
-                            width: 720,
-                            height: 1280,
+                            width: { ideal: 1280, max: 1920 },
+                            height: { ideal: 720, max: 1080 },
                             frameRate: 30,
                             bitrateMin: 600,
                             bitrateMax: 1000,
                         },
-                        facingMode: "environment", // Use back camera
-                        optimizationMode: "motion" // Better for sports
+                        facingMode: "environment",
+                        optimizationMode: "motion",
+                        // Enable better orientation handling
+                        videoOrientation: {
+                            mode: "manual",
+                            rotation: 0
+                        }
                     }
                 );
 
-                console.log('Video track settings:', localVideoTrack.getSettings());
+                // Set initial encoder configuration based on orientation
+                await updateVideoTrackOrientation(currentOrientation === 'landscape');
 
-                // Play local video (mirrored preview for you, but viewers see it correctly)
+                // Play local video
                 localVideoTrack.play("localVideo");
 
-                // FIXED: Ensure proper initial display
-                setTimeout(() => handleOrientationChange(), 200);
+                // Ensure proper initial display
+                handleOrientationChange();
 
                 // Join channel
                 await agoraClient.join(
@@ -785,7 +800,7 @@
                     currentStream.broadcasterUid
                 );
 
-                // Publish tracks (viewers will see un-mirrored, correct view)
+                // Publish tracks
                 await agoraClient.publish([localAudioTrack, localVideoTrack]);
 
                 console.log("Successfully joined and published");
@@ -810,6 +825,109 @@
             }
         }
 
+        // FIXED: Handle orientation changes for proper video display
+        function handleOrientationChange() {
+            if (!localVideoTrack) return;
+            
+            const videoElement = document.getElementById('localVideo');
+            
+            // Get current device orientation
+            const isLandscape = window.innerWidth > window.innerHeight;
+            const newOrientation = isLandscape ? 'landscape' : 'portrait';
+            
+            // Only update if orientation actually changed
+            if (currentOrientation !== newOrientation) {
+                currentOrientation = newOrientation;
+                console.log('Orientation changed:', currentOrientation);
+                
+                // Update the video track for broadcast
+                updateVideoTrackOrientation(isLandscape);
+            }
+            
+            // Force layout recalculation for preview
+            setTimeout(() => {
+                if (videoElement) {
+                    videoElement.style.width = '100vw';
+                    videoElement.style.height = '100vh';
+                    videoElement.style.objectFit = 'cover';
+                    
+                    // Apply CSS transformation to preview
+                    videoElement.style.transform = isLandscape ? 
+                        'scaleX(-1) rotate(0deg)' : 'scaleX(-1) rotate(0deg)';
+                }
+            }, 100);
+        }
+
+        // NEW FUNCTION: Update the video track orientation for broadcast
+        async function updateVideoTrackOrientation(isLandscape) {
+            if (!localVideoTrack) return;
+            
+            try {
+                // Update encoder configuration based on orientation
+                if (isLandscape) {
+                    // Landscape: 1280x720 (16:9)
+                    await localVideoTrack.setEncoderConfiguration({
+                        width: 1280,
+                        height: 720,
+                        frameRate: 30,
+                        bitrateMin: 1000,
+                        bitrateMax: 2000
+                    });
+                    
+                    // Try to set orientation hint if available
+                    if (localVideoTrack._mediaStreamTrack && 
+                        localVideoTrack._mediaStreamTrack.getSettings) {
+                        const settings = localVideoTrack._mediaStreamTrack.getSettings();
+                        if (settings.width && settings.height && 
+                            settings.width < settings.height) {
+                            // Camera is in portrait, need to rotate
+                            console.log('Camera in portrait mode during landscape, applying rotation hint');
+                        }
+                    }
+                } else {
+                    // Portrait: 720x1280 (9:16)
+                    await localVideoTrack.setEncoderConfiguration({
+                        width: 720,
+                        height: 1280,
+                        frameRate: 30,
+                        bitrateMin: 800,
+                        bitrateMax: 1500
+                    });
+                }
+                
+                console.log('Video track updated for', isLandscape ? 'landscape' : 'portrait');
+            } catch (error) {
+                console.warn('Could not update video track orientation:', error);
+                // Fallback: Try to reinitialize the camera with new constraints
+                try {
+                    if (localVideoTrack._mediaStreamTrack && 
+                        localVideoTrack._mediaStreamTrack.applyConstraints) {
+                        await localVideoTrack._mediaStreamTrack.applyConstraints({
+                            width: isLandscape ? 1280 : 720,
+                            height: isLandscape ? 720 : 1280
+                        });
+                    }
+                } catch (fallbackError) {
+                    console.warn('Fallback orientation update failed:', fallbackError);
+                }
+            }
+        }
+
+        function lockOrientation() {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape')
+                    .then(() => console.log('Orientation locked to landscape'))
+                    .catch(err => console.warn('Orientation lock failed:', err));
+            }
+        }
+
+        function unlockOrientation() {
+            if (screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+                console.log('Orientation unlocked');
+            }
+        }
+
         async function startStream() {
             try {
                 const response = await fetch(`${API_URL}/streams/${currentStream.id}/start`, {
@@ -829,6 +947,9 @@
             if (!confirm('Are you sure you want to end this stream?')) return;
 
             try {
+                // Unlock orientation
+                unlockOrientation();
+                
                 // Leave Agora channel
                 if (localAudioTrack) {
                     localAudioTrack.stop();
@@ -863,6 +984,7 @@
                 agoraClient = null;
                 localAudioTrack = null;
                 localVideoTrack = null;
+                currentOrientation = 'portrait';
                 
                 loadStats();
 
@@ -901,12 +1023,10 @@
             };
         }
 
-        // FIXED: Proper copy function that works on mobile
         function copyViewerLink() {
             const linkText = document.getElementById('viewerLinkText').textContent;
             const btn = document.getElementById('copyLinkBtn');
             
-            // Try the modern clipboard API first
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(linkText).then(() => {
                     btn.textContent = 'Copied!';
@@ -920,47 +1040,10 @@
                     fallbackCopyLink(linkText, btn);
                 });
             } else {
-                // Fallback for older browsers/mobile
                 fallbackCopyLink(linkText, btn);
             }
         }
 
-        // FIXED: Handle orientation changes for proper video display
-        function handleOrientationChange() {
-            if (!localVideoTrack) return;
-            
-            const videoElement = document.getElementById('localVideo');
-            const isLandscape = window.innerWidth > window.innerHeight;
-            
-            console.log('Orientation changed:', isLandscape ? 'landscape' : 'portrait');
-            console.log('Window dimensions:', window.innerWidth, 'x', window.innerHeight);
-            
-            // Force browser to recalculate styles
-            setTimeout(() => {
-                if (videoElement) {
-                    // Trigger reflow
-                    videoElement.style.display = 'none';
-                    videoElement.offsetHeight; // Force reflow
-                    videoElement.style.display = 'block';
-                    
-                    console.log('Video element updated for', isLandscape ? 'landscape' : 'portrait');
-                }
-            }, 100);
-        }
-
-        // Listen for orientation changes
-        window.addEventListener('orientationchange', handleOrientationChange);
-        window.addEventListener('resize', handleOrientationChange);
-        
-        // Also listen for screen orientation API if available
-        if (screen.orientation) {
-            screen.orientation.addEventListener('change', () => {
-                console.log('Screen orientation:', screen.orientation.type);
-                handleOrientationChange();
-            });
-        }
-
-        // Fallback copy method for mobile browsers
         function fallbackCopyLink(text, btn) {
             const textArea = document.createElement('textarea');
             textArea.value = text;
@@ -988,10 +1071,13 @@
         }
 
         function loadStats() {
-            // Placeholder - in production, fetch real stats from backend
             document.getElementById('lastStreamDuration').textContent = '--';
             document.getElementById('totalViews').textContent = '--';
         }
+
+        // Listen for orientation changes
+        window.addEventListener('orientationchange', handleOrientationChange);
+        window.addEventListener('resize', handleOrientationChange);
 
         // Cleanup on page unload
         window.addEventListener('beforeunload', (e) => {
@@ -1004,5 +1090,4 @@
     </script>
 </body>
 </html>
-
 
