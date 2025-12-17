@@ -263,7 +263,7 @@
             cursor: not-allowed;
         }
 
-        /* Live Streaming View */
+        /* Live Streaming View - FIXED FOR LANDSCAPE */
         #liveView {
             display: none;
             position: fixed;
@@ -283,14 +283,27 @@
             width: 100%;
             height: 100%;
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
 
         #localVideo {
+            /* FIXED: Proper sizing for landscape */
             width: 100%;
             height: 100%;
-            object-fit: cover;
-            /* FIXED: Mirror the local preview so it's not confusing */
-            transform: scaleX(-1);
+            object-fit: contain; /* Changed from cover to contain */
+            transform: scaleX(-1); /* Mirror for preview */
+        }
+
+        /* FIXED: Handle landscape orientation */
+        @media (orientation: landscape) {
+            #localVideo {
+                width: 100%;
+                height: 100%;
+                object-fit: cover; /* Fill screen in landscape */
+            }
         }
 
         .live-controls {
@@ -359,7 +372,7 @@
 
         .connection-status {
             position: fixed;
-            bottom: 180px;
+            bottom: 220px; /* FIXED: Raised to avoid button overlap */
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.8);
@@ -376,9 +389,10 @@
             height: 20px;
         }
 
+        /* FIXED: Proper spacing for viewer link section */
         .viewer-link-section {
             position: fixed;
-            bottom: 30px; /* FIXED: Lowered from 100px to 30px */
+            bottom: 140px; /* FIXED: Raised from 30px to make room for end stream button */
             left: 20px;
             right: 20px;
             background: rgba(0, 0, 0, 0.8);
@@ -421,22 +435,23 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
+            flex-shrink: 0; /* Prevent button from shrinking */
         }
 
+        /* FIXED: End stream button properly positioned */
         .live-bottom-controls {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 30px 20px;
-            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+            bottom: 20px; /* FIXED: Clear separation from viewer link */
+            left: 20px;
+            right: 20px;
             z-index: 2001;
+            display: flex;
+            justify-content: center;
         }
 
         .end-stream-btn {
             width: 100%;
             max-width: 400px;
-            margin: 0 auto;
             padding: 18px;
             background: #FF3B30;
             border: none;
@@ -449,6 +464,41 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
+        }
+
+        /* FIXED: Landscape layout adjustments */
+        @media (orientation: landscape) {
+            .live-timer {
+                top: 20px;
+                left: 20px;
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+
+            .connection-status {
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .viewer-link-section {
+                bottom: auto;
+                top: 80px;
+                left: 20px;
+                right: auto;
+                max-width: 350px;
+            }
+
+            .live-bottom-controls {
+                bottom: 20px;
+                right: 20px;
+                left: auto;
+                width: auto;
+            }
+
+            .end-stream-btn {
+                max-width: 200px;
+            }
         }
 
         .hidden {
@@ -574,7 +624,7 @@
             <div class="viewer-link-label">Share this link with viewers:</div>
             <div class="viewer-link">
                 <span class="viewer-link-text" id="viewerLinkText">Loading...</span>
-                <button class="copy-link-btn" id="copyLinkBtn">Copy</button>
+                <button class="copy-link-btn" id="copyLinkBtn" onclick="copyViewerLink()">Copy</button>
             </div>
         </div>
 
@@ -599,44 +649,36 @@
         let localAudioTrack = null;
         let localVideoTrack = null;
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            setupEventListeners();
-            loadStats();
+        // Event listeners
+        document.getElementById('goLiveBtn').addEventListener('click', () => {
+            document.getElementById('setupModal').classList.add('active');
         });
 
-        function setupEventListeners() {
-            document.getElementById('goLiveBtn').addEventListener('click', showSetupModal);
-            document.getElementById('closeSetupBtn').addEventListener('click', hideSetupModal);
-            document.getElementById('startStreamingBtn').addEventListener('click', initializeStream);
-            document.getElementById('endStreamBtn').addEventListener('click', endStream);
-            
-            // FIXED: Added proper event listener for copy button
-            document.getElementById('copyLinkBtn').addEventListener('click', copyViewerLink);
-        }
-
-        function showSetupModal() {
-            document.getElementById('setupModal').classList.add('active');
-        }
-
-        function hideSetupModal() {
+        document.getElementById('closeSetupBtn').addEventListener('click', () => {
             document.getElementById('setupModal').classList.remove('active');
-        }
+        });
+
+        document.getElementById('startStreamingBtn').addEventListener('click', initializeStream);
+        document.getElementById('endStreamBtn').addEventListener('click', endStream);
 
         async function initializeStream() {
-            const title = document.getElementById('streamTitle').value || 'Untitled Stream';
-            const sport = document.getElementById('sportSelect').value || 'General';
             const btn = document.getElementById('startStreamingBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg> INITIALIZING...';
 
             try {
-                btn.disabled = true;
-                btn.textContent = 'Initializing...';
+                const title = document.getElementById('streamTitle').value || 'Live Stream';
+                const sport = document.getElementById('sportSelect').value || 'Other';
 
-                // Create stream on backend
+                // Create stream
                 const response = await fetch(`${API_URL}/streams/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, sport })
+                    body: JSON.stringify({ 
+                        title: title,
+                        sport: sport,
+                        deviceType: 'mobile'
+                    })
                 });
 
                 const data = await response.json();
@@ -647,31 +689,24 @@
                 // Initialize Agora
                 await initializeAgora();
 
-                // Update viewer link
-                document.getElementById('viewerLinkText').textContent = currentStream.viewerUrl;
-
-                // Start the stream
-                await startStream();
-
-                hideSetupModal();
-                document.getElementById('homeView').classList.add('hidden');
-                document.getElementById('liveView').classList.add('active');
-
-                // Start timer
+                // Start stream timer
                 streamStartTime = Date.now();
                 timerInterval = setInterval(updateTimer, 1000);
+
+                // Start stream on backend
+                await startStream();
 
                 // Connect to viewer count WebSocket
                 connectViewerCountWS();
 
-                // Keep screen awake
-                if ('wakeLock' in navigator) {
-                    try {
-                        await navigator.wakeLock.request('screen');
-                    } catch (err) {
-                        console.log('Wake lock failed:', err);
-                    }
-                }
+                // Show viewer link
+                document.getElementById('viewerLinkText').textContent = 
+                    `https://fieldlive.app/watch/${currentStream.id}`;
+
+                // Show live view
+                document.getElementById('setupModal').classList.remove('active');
+                document.getElementById('homeView').classList.add('hidden');
+                document.getElementById('liveView').classList.add('active');
 
             } catch (error) {
                 console.error('Error initializing stream:', error);
@@ -915,5 +950,4 @@
     </script>
 </body>
 </html>
-
 
