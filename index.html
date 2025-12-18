@@ -290,33 +290,11 @@
         }
 
         #localVideo {
-            /* Base video styling */
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
-            transform: translate(-50%, -50%) scaleX(-1);
-            transform-origin: center center;
-        }
-
-        /* Portrait orientation - video is naturally portrait */
-        @media (orientation: portrait) {
-            #localVideo {
-                width: 100vw;
-                height: auto;
-            }
-        }
-
-        /* Landscape orientation - rotate the portrait video 90 degrees */
-        @media (orientation: landscape) {
-            #localVideo {
-                transform: translate(-50%, -50%) scaleX(-1) rotate(90deg);
-                width: 100vh; /* Swap dimensions */
-                height: 100vw;
-            }
+            /* FIXED: Simple video display that works in both orientations */
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror for preview */
         }
 
         .live-controls {
@@ -712,9 +690,9 @@
                 // Connect to viewer count WebSocket
                 connectViewerCountWS();
 
-                // Show viewer link
+                // Show viewer link - FIXED: Use correct Railway URL
                 document.getElementById('viewerLinkText').textContent = 
-                    `https://fieldlive.app/watch/${currentStream.id}`;
+                    `https://fieldlive-production.up.railway.app/watch/${currentStream.id}`;
 
                 // Show live view
                 document.getElementById('setupModal').classList.remove('active');
@@ -1019,4 +997,3 @@
     </script>
 </body>
 </html>
-
